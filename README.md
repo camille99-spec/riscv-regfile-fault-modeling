@@ -29,14 +29,15 @@ This project implements and verifies a 32×32 RISC-V-compatible register file in
 ### Run Instructions
 
 #### Using EDA Playground:
-1. Upload `regfile.sv` and `tb_regfile_cv.sv`
+1. Upload `regfile.sv` and `tb_regfile.sv`
 2. Set tool to **Questa / ModelSim**
 3. Enable waveform and run simulation
 
 ## Fault Injection Types:
 - Stuck-at Faults: Force register bits to 0 or 1 and detect mismatches
-- Bit-Flip Faults: Flip bits randomly or deterministically to emulate soft errors
 - Multi-bit Faults: Inject burst errors (e.g., 3 bits in x27) to simulate radiation hits
+- Bit-Flip Faults: Flip bits randomly or deterministically to emulate soft errors
+
 
 ## References:
 1. Tollec et al., Exploration of fault effects on formal RISC-V models, IEEE FDTC 2022
