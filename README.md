@@ -34,9 +34,13 @@ This project implements and verifies a 32×32 RISC-V-compatible register file in
 3. Enable waveform and run simulation
 
 #### Using Questa:
-cd tb
-vlog ../rtl/regfile.sv tb_regfile_cv.sv
-vsim -c work.tb_regfile_cv -do "run -all; quit"
+```
+# Compile RTL and testbench vlog 
+../rtl/regfile.sv ../tb/tb_regfile_cv.sv
+# Simulate vsim
+-c work.tb_regfile_cv -do "run -all; quit"
+```
+
 
 ## Fault Injection Types:
 - Stuck-at Faults: Force register bits to 0 or 1 and detect mismatches
