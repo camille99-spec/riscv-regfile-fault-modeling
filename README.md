@@ -33,16 +33,10 @@ This project implements and verifies a 32×32 RISC-V-compatible register file in
 2. Set tool to **Questa / ModelSim**
 3. Enable waveform and run simulation
 
-#### Using Questa:
-```bash
-cd tb
-vlog ../rtl/regfile.sv tb_regfile_cv.sv
-vsim -c work.tb_regfile_cv -do "run -all; quit"
-
 ## Fault Injection Types:
--Stuck-at Faults: Force register bits to 0 or 1 and detect mismatches
--Bit-Flip Faults: Flip bits randomly or deterministically to emulate soft errors
--Multi-bit Faults: Inject burst errors (e.g., 3 bits in x27) to simulate radiation hits
+- Stuck-at Faults: Force register bits to 0 or 1 and detect mismatches
+- Bit-Flip Faults: Flip bits randomly or deterministically to emulate soft errors
+- Multi-bit Faults: Inject burst errors (e.g., 3 bits in x27) to simulate radiation hits
 
 ## References:
 1. Tollec et al., Exploration of fault effects on formal RISC-V models, IEEE FDTC 2022
@@ -61,4 +55,13 @@ This project is released for academic and educational use. For commercial or res
 
 ## Acknowledgments
 Thanks to the UC Davis EEC 283 course and faculty for guidance on functional verification methodology and simulation tooling.
+
+#### Using Questa:
+```bash
+cd tb
+vlog ../rtl/regfile.sv tb_regfile_cv.sv
+vsim -c work.tb_regfile_cv -do "run -all; quit"
+
+
+
 
