@@ -47,7 +47,27 @@ This project implements and verifies a 32×32 RISC-V-compatible register file in
 - Multi-bit Faults: Inject burst errors (e.g., 3 bits in x27) to simulate radiation hits
 - Bit-Flip Faults: Flip bits randomly or deterministically to emulate soft errors
 
+## Results
+The RISC-V register file successfully passed all functional tests, including both directed and randomized verification scenarios. Directed tests confirmed architectural correctness for key behaviors such as:
+- Writes to general-purpose registers
+- Enforcement of x0 hardwiring
+- Read-after-write behavior (write-first semantics)
+- Overwrite scenarios and simultaneous access patterns
 
+### Functional Verification
+A randomized test campaign of 10,000 stimuli vectors demonstrated 100% functional correctness with no assertion failures. The golden model mirrored every transaction, enabling cycle-accurate output comparison with the DUT. All mismatches were automatically flagged, and zero errors were reported during simulation.
+
+### Fault Injection Performance
+Fault Type	Total Cases	Detection Rate	Functional Coverage	Sim Time
+Single-Bit Stuck-at	2048	~51%	100%	~12.3 ms
+Multi-Bit Stuck-at	~100	>97%	>97%	~14.6 ms
+Bit-Flip (Deterministic)	1024	100%	100%	~20.5 µs
+Bit-Flip (Randomized)	10,000+	~98%	~34%	~27.8 ms
+
+- Deterministic Bit-Flip Faults achieved 100% detection and 100% coverage, validating all bit locations across the 32×32 register array.
+- Multi-bit faults revealed edge cases and latent propagation paths that were not visible in single-bit scenarios.
+- Random bit-flip tests showed diminishing returns in coverage despite high injection counts, indicating the importance of strategic fault modeling.
+- 
 ## References:
 1. Tollec et al., Exploration of fault effects on formal RISC-V models, IEEE FDTC 2022
 2. Molina-Robles et al., Functional verification flow for RISC-V, IEEE PRIME-LA 2020
