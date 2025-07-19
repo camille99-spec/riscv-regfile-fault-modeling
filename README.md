@@ -57,6 +57,8 @@ The RISC-V register file successfully passed all functional tests, including bot
 ### Functional Verification
 A randomized test campaign of 10,000 stimuli vectors demonstrated 100% functional correctness with no assertion failures. The golden model mirrored every transaction, enabling cycle-accurate output comparison with the DUT. All mismatches were automatically flagged, and zero errors were reported during simulation.
 
+To thoroughly evaluate the register file's robustness, we implemented a wide range of fault injection scenarios. A total of 2048 single-bit stuck-at faults were tested, covering all 32 bits across 32 registers with both stuck-at-0 and stuck-at-1 polarities. For deterministic bit-flip faults, 1024 unique cases were injected—one for each bit in the 32×32 register array—to simulate transient errors. Additionally, we executed multi-bit fault scenarios, injecting combinations of 2 to 3 simultaneous bit errors to replicate burst-like failures; approximately 100 targeted cases were analyzed. Finally, over 10,000 randomized bit-flip cases were simulated to emulate soft errors under stochastic conditions. This comprehensive fault model library ensures that both isolated and systemic vulnerabilities are exercised, analyzed, and validated through comparison with a golden reference model.
+
 ### Fault Injection Performance
 ![Fault Injection Performance](docs/fault_injection_metrics.png)
 
