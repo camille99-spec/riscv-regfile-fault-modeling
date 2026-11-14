@@ -1,95 +1,39 @@
 `timescale 1ns/1ps
 `default_nettype none
 
+// -----------------------------------------------------------------------------
+// Exhaustive single-bit flip campaign: 32 registers x 32 bits = 1024 faults
+// A flip always changes the value, so every fault is activated except on x0,
+// where the hardwired zero masks it.
+// -----------------------------------------------------------------------------
 module tb_regfile_bitflip_fullcov;
 
-  localparam WIDTH = 32;
-  localparam DEPTH = 32;
+  `include "fault_tb_common.svh"
 
-  logic clk;
-  logic we;
-  logic [$clog2(DEPTH)-1:0] waddr, raddr1;
-  logic [WIDTH-1:0] wdata;
-  logic [WIDTH-1:0] rdata1;
+  int cv_addr, cv_bit;
 
-  logic [WIDTH-1:0] golden_mem [0:DEPTH-1];
-  logic [WIDTH-1:0] expected;
-
-  logic [$clog2(DEPTH)-1:0] fault_addr;
-  int fault_bit;
-  logic [WIDTH-1:0] fault_mask;
-
-  // DUT
-  regfile #(.WIDTH(WIDTH), .DEPTH(DEPTH)) dut (
-    .clk(clk),
-    .we(we),
-    .waddr(waddr),
-    .wdata(wdata),
-    .raddr1(raddr1),
-    .raddr2(), // unused
-    .rdata1(rdata1),
-    .rdata2()  // unused
-  );
-
-  // Clock
-  initial clk = 0;
-  always #5 clk = ~clk;
-
-  // Coverage
-  covergroup bitflip_cov @(posedge clk);
-    coverpoint fault_addr { bins all_addr[] = {[0:DEPTH-1]}; }
-    coverpoint fault_bit  { bins all_bits[] = {[0:WIDTH-1]}; }
-    cross fault_addr, fault_bit;
+  covergroup flip_cov;
+    cp_addr : coverpoint cv_addr { bins addr[] = {[0:DEPTH-1]}; }
+    cp_bit  : coverpoint cv_bit  { bins bits[] = {[0:WIDTH-1]}; }
+    x_all   : cross cp_addr, cp_bit;                             // 1024 bins
   endgroup
+  flip_cov cov = new();
 
-  bitflip_cov cov = new();
-
-  // Full fault injection sweep
   initial begin
-    automatic int detected = 0;
-    automatic int injected = 0;
-
-    #10;
-    $display("=== Exhaustive Bit-Flip Fault Sweep ===");
-
-    for (int addr = 0; addr < DEPTH; addr++) begin
-      for (int bit_idx = 0; bit_idx < WIDTH; bit_idx++) begin
-        fault_addr = addr;
-        fault_bit  = bit_idx;
-        fault_mask = 32'b1 << fault_bit;
-
-        // Write base pattern
-        waddr = fault_addr;
-        wdata = $urandom(); // or fixed pattern like 32'hA5A5A5A5
-        we = 1;
-        #10;
-        we = 0;
-        golden_mem[fault_addr] = wdata;
-
-        // Flip bit in golden reference
-        golden_mem[fault_addr] ^= fault_mask;
-        expected = golden_mem[fault_addr];
-
-        // Read and compare
-        raddr1 = fault_addr;
-        #10;
+    bit act, sb, sva;
+    tb_init();
+    $display("=== Exhaustive bit-flip sweep (1024 faults) ===");
+    for (int a = 0; a < DEPTH; a++) begin
+      for (int b = 0; b < WIDTH; b++) begin
+        run_fault(F_FLIP, a[ADDRW-1:0], 32'b1 << b, $urandom(), act, sb, sva);
+        cv_addr = a; cv_bit = b;
         cov.sample();
-
-        if (rdata1 !== expected) begin
-          $display("[OK] Bit-flip @x%0d[%0d]: DUT=%h, EXP=%h",
-                   fault_addr, fault_bit, rdata1, expected);
-          detected++;
-        end else begin
-          $display("[MISS] Undetected fault @x%0d[%0d]", fault_addr, fault_bit);
-        end
-
-        injected++;
       end
     end
-
-    $display("Total detected bit-flip faults: %0d / %0d", detected, injected);
-    $display("Functional Coverage: %0.2f%%", cov.get_coverage());
+    print_summary("Exhaustive single-bit flip (1024 faults)");
+    $display("Functional coverage (addr x bit, 1024 bins): %0.2f%%", cov.get_coverage());
     $finish;
   end
 
 endmodule
+
