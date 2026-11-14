@@ -1,126 +1,66 @@
 `timescale 1ns/1ps
 `default_nettype none
 
-module tb_regfile_all;
+// -----------------------------------------------------------------------------
+// Exhaustive single-bit stuck-at campaign
+//   2 polarities x 32 registers x 32 bits = 2048 fault sites
+//   Pass 1 (random data)     : data is random, so a stuck-at is only activated
+//                              when the stored bit differs from the stuck value
+//   Pass 2 (activating data) : the data bit is forced to the opposite of the
+//                              stuck value, so every fault outside x0 is activated
+// -----------------------------------------------------------------------------
+module tb_regfile_singlebit_fullcov;
 
-  localparam WIDTH = 32;
-  localparam DEPTH = 32;
+  `include "fault_tb_common.svh"
 
-  // DUT signals
-  logic clk;
-  logic we;
-  logic [$clog2(DEPTH)-1:0] waddr, raddr1;
-  logic [WIDTH-1:0] wdata;
-  logic [WIDTH-1:0] rdata1;
+  logic [1:0] cv_type;
+  int         cv_addr, cv_bit;
 
-  // Fault injection
-  logic fault_enable;
-  logic fault_type; // 0: stuck-at-0, 1: stuck-at-1
-  logic [$clog2(DEPTH)-1:0] fault_addr;
-  logic [WIDTH-1:0] fault_mask;
-  int fault_mask_bit;
-
-  // Scoreboard
-  logic [WIDTH-1:0] golden_mem [0:DEPTH-1];
-  logic [WIDTH-1:0] expected;
-
-  // Instantiate DUT
-  regfile #(.WIDTH(WIDTH), .DEPTH(DEPTH)) dut (
-    .clk(clk),
-    .we(we),
-    .waddr(waddr),
-    .wdata(wdata),
-    .raddr1(raddr1),
-    .raddr2(),
-    .rdata1(rdata1),
-    .rdata2()
-  );
-
-  // Clock
-  initial clk = 0;
-  always #5 clk = ~clk;
-
-  // Full Coverage Group: fault_type × fault_addr × fault_mask_bit
-  covergroup full_fault_cov @(posedge clk);
-    coverpoint fault_type;
-    coverpoint fault_addr;
-    coverpoint fault_mask_bit {
-      bins bit_pos[] = {[0:31]};
-    }
-    cross fault_type, fault_addr, fault_mask_bit;
+  covergroup stuck_cov;
+    cp_type : coverpoint cv_type { bins sa0 = {F_SA0}; bins sa1 = {F_SA1}; }
+    cp_addr : coverpoint cv_addr { bins addr[] = {[0:DEPTH-1]}; }
+    cp_bit  : coverpoint cv_bit  { bins bits[] = {[0:WIDTH-1]}; }
+    x_all   : cross cp_type, cp_addr, cp_bit;                    // 2048 bins
   endgroup
-  full_fault_cov cov_full = new();
+  stuck_cov cov = new();
 
-  // Initialization
-  initial begin
-    we = 1;
-    waddr = 5;
-    wdata = 32'hCAFEBABE;
-    raddr1 = 5;
-    #10;
-    we = 0;
-    golden_mem[5] = 32'hCAFEBABE;
-    expected = golden_mem[5];
-    #10;
-    if (rdata1 !== expected)
-      $display("FAIL: Expected %h, got %h", expected, rdata1);
-    else
-      $display("PASS: x5 = %h", rdata1);
-  end
-
-  // Full Fault Coverage Test
-  initial begin
-    automatic int detected = 0;
-    automatic int injected = 0;
-
-    #30;
-    $display("=== Full Fault Injection Coverage Campaign ===");
-
+  task automatic sweep(input bit activating_data);
+    bit act, sb, sva;
+    logic [WIDTH-1:0] mask, data;
     for (int t = 0; t < 2; t++) begin
-      for (int a = 1; a < DEPTH; a++) begin
+      for (int a = 0; a < DEPTH; a++) begin
         for (int b = 0; b < WIDTH; b++) begin
-          fault_type = t;
-          fault_addr = a;
-          fault_mask_bit = b;
-          fault_mask = 32'b1 << fault_mask_bit;
-          fault_enable = 1;
-
-          // Write random data
-          waddr = fault_addr;
-          wdata = $urandom;
-          we = 1;
-          #10;
-          we = 0;
-
-          // Update golden model
-          golden_mem[fault_addr] = wdata;
-          if (fault_type == 0)
-            golden_mem[fault_addr] &= ~fault_mask;
-          else
-            golden_mem[fault_addr] |= fault_mask;
-
-          expected = golden_mem[fault_addr];
-          raddr1 = fault_addr;
-          #10;
-
-          cov_full.sample(); // sample this triple (type, addr, bit)
-
-          if (rdata1 !== expected) begin
-            $display("[Mismatch] Fault %0d @x%0d[%0d]: DUT=%h, EXP=%h",
-              injected, fault_addr, fault_mask_bit, rdata1, expected);
-          end else begin
-            $display("[Detected] Fault %0d @x%0d[%0d]",
-              injected, fault_addr, fault_mask_bit);
-            detected++;
-          end
-
-          injected++;
+          logic [1:0] ft;
+          ft   = (t == 0) ? F_SA0 : F_SA1;
+          mask = 32'b1 << b;
+          data = $urandom();
+          if (activating_data)
+            data = (ft == F_SA0) ? (data | mask) : (data & ~mask);
+          run_fault(ft, a[ADDRW-1:0], mask, data, act, sb, sva);
+          cv_type = ft; cv_addr = a; cv_bit = b;
+          cov.sample();
         end
       end
     end
+  endtask
 
-    $display("Detected: %0d / %0d", detected, injected);
-    $display("Functional Coverage (2048 bins): %0.2f%%", cov_full.get_coverage());
+  initial begin
+    tb_init();
+
+    $display("=== Pass 1: single-bit stuck-at, random data ===");
+    sweep(1'b0);
+    print_summary("Single-bit stuck-at, RANDOM data (2048 faults)");
+    $display("Functional coverage (type x addr x bit, 2048 bins): %0.2f%%", cov.get_coverage());
+
+    n_injected = 0; n_activated = 0; n_masked = 0; n_sb_det = 0;
+    n_sva_det = 0; n_escaped = 0; n_false = 0;
+    dut.u_sva.n_a5_read = 0;  dut.u_sva.n_a3_write = 0;
+    dut.u_sva.n_a4_hold = 0;  dut.u_sva.n_a7_isolation = 0;
+
+    $display("=== Pass 2: single-bit stuck-at, activating data ===");
+    sweep(1'b1);
+    print_summary("Single-bit stuck-at, ACTIVATING data (2048 faults)");
+    $display("Functional coverage (type x addr x bit, 2048 bins): %0.2f%%", cov.get_coverage());
     $finish;
   end
 
